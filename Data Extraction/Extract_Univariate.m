@@ -1,11 +1,11 @@
 function DataStruct = Extract_Univariate(DataStruct)
 Compute_RMS = true; % Note that this is used twice - for Base RMS and Relative RMS.
-Compute_Entropy = true;
-Compute_SpectralEntropy = true;
-Compute_SpectralKurtosis = true;
-Compute_PSD = true;
-compute_PSDfit = true;
-Compute_Bands = true;
+Compute_Entropy = false;
+Compute_SpectralEntropy = false;
+Compute_SpectralKurtosis = false;
+Compute_PSD = false;
+compute_PSDfit = false;
+Compute_Bands = false;
 
 % This function:
 %   - Operates on each patient's data stored in the structure 'DataStruct'
@@ -62,29 +62,23 @@ for patient = DataStruct.params.patients
                 % 2. Find RMS of the rows between start_index and end_index
                 col_RMS_Vec = [];
                 for row = start_index:end_index
-                    % 2.1 find correct vector to work with
-                    if ~isfield(DataStruct.(string(patient)).(TableName).(col_name){row}, 'data_vector_01_spk')
+                    row_struct = DataStruct.(string(patient)).(TableName).(col_name){row};
+
+                    % 2.1. check for data vector
+                    if ~isstruct(row_struct) || isempty(fieldnames(row_struct))
                         % no point in extracting the data if there is no vector.
                         disp(['No data found in row ' num2str(row)])
                         continue
                     end
                     
-                    % 2.2 choose correct vector by length
-                    data_vec = DataStruct.(string(patient)).(TableName).(col_name){row}.data_vector_01_spk;
-                    i_vec = 2;
-                    while length(data_vec) < Fs && i_vec < 5
-                        vector_name = ['data_vector_0' num2str(i_vec) '_spk'];
-                        try
-                            data_vec = DataStruct.(string(patient)).(TableName).(col_name){row}.(vector_name);
-                        catch
-                            data_vec = DataStruct.(string(patient)).(TableName).(col_name){row}.data_vector_01_spk;
-                        end
-                        i_vec = i_vec+1;
-                    end
-                    data_vec = single(data_vec);
+                    % 2.2. choose correct vector by length
+                    row_fields = fieldnames(row_struct);
+                    row_main_field = row_fields(contains(row_fields, 'data_vector')...
+                                                & contains(row_fields, 'spk') & contains(row_fields, 'main'));
+                    data_vec = row_struct.(row_main_field{1});
                     
                     % 2.3 take RMS of chosen vector
-                    col_RMS_Vec(end+1) = rms(data_vec);
+                    col_RMS_Vec(end+1) = rms(single(data_vec));
                 end
                 
                 % 3. Calculate and Save Base RMS
@@ -99,28 +93,34 @@ for patient = DataStruct.params.patients
                 % column before moving to the next.
                 
                 %% %%%%%%%% find correct vector to work with %%%%%%%%%%%%%%
+                row_struct = DataStruct.(string(patient)).(TableName).(col_name){row};
                 % 1. check for data vector
-                if ~isfield(DataStruct.(string(patient)).(TableName).(col_name){row}, 'data_vector_01_spk')
+                if ~isstruct(row_struct) || isempty(fieldnames(row_struct))
                     % no point in extracting the data if there is no vector.
                     disp(['No data found in row ' num2str(row)])
                     continue
                 end
                 
                 %2. choose correct vector by length
-                % some vectors are too short, because sometimes there are
-                % multiple files in the same location, and only the
-                % last one contains the real, long recording.
-                data_vec = DataStruct.(string(patient)).(TableName).(col_name){row}.data_vector_01_spk;
-                i_vec = 2;
-                while length(data_vec) < Fs
-                    vector_name = ['data_vector_0' num2str(i_vec) '_spk'];
-                    try
-                        data_vec = DataStruct.(string(patient)).(TableName).(col_name){row}.(vector_name);
-                    catch
-                        data_vec = DataStruct.(string(patient)).(TableName).(col_name){row}.data_vector_01_spk;
-                    end
-                    i_vec = i_vec+1;
-                end
+                row_fields = fieldnames(row_struct);
+                row_main_field = row_fields(contains(row_fields, 'data_vector')...
+                                            & contains(row_fields, 'spk') & contains(row_fields, 'main'));
+                data_vec = row_struct.(row_main_field{1});
+                % i_vec = 2;
+                % tmp_row = row;
+                % while length(data_vec) < Fs
+                %     vector_name = ['data_vector_0' num2str(i_vec) '_spk'];
+                %     if isfield(DataStruct.(string(patient)).(TableName).(col_name){tmp_row}, vector_name)
+                %         data_vec = DataStruct.(string(patient)).(TableName).(col_name){tmp_row}.(vector_name);
+                %         i_vec = i_vec+1;
+                %     else
+                %         tmp_row = row-1;
+                %         i_vec = 1;
+                %         vector_name = ['data_vector_0' num2str(i_vec) '_spk'];
+                %         data_vec = DataStruct.(string(patient)).(TableName).(col_name){tmp_row}.(vector_name);
+                %         i_vec = 1;
+                %     end
+                % end
                 data_vec = single(data_vec);
                 
                 
