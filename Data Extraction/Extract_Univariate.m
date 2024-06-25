@@ -133,8 +133,9 @@ for patient = DataStruct.params.patients
                 
                 % 2. Entropy
                 if Compute_Entropy
-                    counts = hist(data_vec, unique(data_vec));
-                    probabilities = counts / numel(data_vec);
+                    count = histcounts(data_vec, unique(data_vec));
+                    probabilities = count / sum(count);
+                    probabilities(probabilities == 0) = [];
                     Shannon_Entropy = -sum(probabilities .* log2(probabilities));
                     DataStruct.(string(patient)).(TableName).(col_name){row}.Shannon_Entropy = Shannon_Entropy;
                 end
