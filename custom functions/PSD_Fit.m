@@ -1,4 +1,4 @@
-function [final_fit, aperiodic_A, aperiodic_C, Peak_freq, Peak_bw] = PSD_Fit(data_vec, f, peak_distance_Hz, min_peak_height_STD, plotting)
+function [final_fit, aperiodic_params, Peak_freq, Peak_bw, peak_height, rmse] = PSD_Fit(data_vec, f, peak_distance_Hz, min_peak_height_STD, plotting)
 % PSD_Fit.m Fits a power-law model to the power spectral density (PSD) data and performs data cleaning.
 % Roni Naivelt | May 2024.
 % INPUTS:
@@ -24,7 +24,7 @@ if nargin < 4
     min_peak_height_STD = 1;
 end
 
-if nargin < 3
+if nargin < 2
     peak_distance_Hz = 2.5;
 end
 
@@ -38,7 +38,7 @@ gaussian_region = {};
 % Function for Gaussian fitting
 gauss_eq = @(a, b, c, x) a * exp(-((x - b).^2) / (2 * c^2));
 % function for log fit
-powerLawModel = fittype('(C / (f^A))', 'independent', 'f', 'coefficients', {'C', 'A'});
+powerLawModel = fittype('(C / (f^A)) + B', 'independent', 'f', 'coefficients', {'C', 'A', 'B'});
 
 % adjusting frequency and data vectors
 f = double(f);
@@ -59,48 +59,51 @@ if size(data_vec,1) ~= 1     % check data input size
 end
 
 %% Step 1: fit and remove aperiodic fit
+
 [fit_result,gof] = fit(f',data_vec',powerLawModel,...
-                       'StartPoint',[1, 1],... %  StartPoint = Initial guess for [C, A, B]
-                       'Lower',[0,0], ...      % Lower bounds for [C, A, B]
-                       'Upper',[max(f), inf]);    % Upper bounds for [C, A, B]
+                       'StartPoint',[1, 1, 0],... %  StartPoint = Initial guess for [C, A, B]
+                       'Lower',[0,-inf, -inf], ...      % Lower bounds for [C, A, B]
+                       'Upper',[max(data_vec), inf, inf]);    % Upper bounds for [C, A, B]
 
 % Extract fitted parameters
 C = fit_result.C;
 A = fit_result.A;
-% B = fit_result.B;
-aperiodic_fit = (C ./ (f.^A));
+B = fit_result.B;
+aperiodic_fit = (C ./ (f.^A)) + B;
 periodic_vec = data_vec - aperiodic_fit;
 
-% Trim start if needed (sometimes the start is lower):
-trim_thresh = mean(periodic_vec) - std(periodic_vec);
-trim_indx = 1;
-while periodic_vec(trim_indx) < trim_thresh
-    trim_indx = trim_indx + 1;
-end
-f = f(trim_indx:end);
-periodic_vec = periodic_vec(trim_indx:end);
-aperiodic_fit = aperiodic_fit(trim_indx:end);
-data_vec_trimmed = data_vec(trim_indx:end);
+% % Trim start if needed (sometimes the start is lower):
+% trim_thresh = mean(periodic_vec) - std(periodic_vec);
+% trim_indx = 1;
+% while periodic_vec(trim_indx) < trim_thresh
+%     trim_indx = trim_indx + 1;
+% end
+% f = f(trim_indx:end);
+% periodic_vec = periodic_vec(trim_indx:end);
+% aperiodic_fit = aperiodic_fit(trim_indx:end);
+% data_vec = data_vec(trim_indx:end);
 
 % figure()
-% plot(f,data_vec_trimmed)
+% plot(f,data_vec)
 % hold on
 % plot(f,aperiodic_fit)
 % plot(f,periodic_vec)
 % legend('original', 'aperiodic fit', 'periodic')
 
-%% Step 2: fit a gaussian, find peaks and width
+%% Step 2: fit a gaussian, find peaks, width and height
 
 % Step 2.1: Find peaks higher than 1 standard deviation
 std_dev = mean(periodic_vec) + min_peak_height_STD*std(periodic_vec);
-[pks, locs] = findpeaks(periodic_vec, 'MinPeakHeight', std_dev, 'MinPeakDistance',peak_distance_Hz/(f(2)-f(1)));
-
-local_mean  = movmean(periodic_vec, 5/mean(diff(f)));
-local_std = movstd(periodic_vec,  5/mean(diff(f)));
+[pks, locs] = findpeaks(periodic_vec, 'MinPeakHeight', std_dev, 'MinPeakDistance',peak_distance_Hz/(mean(diff(f))));
 
 % Step 2.2: Fit Gaussian and subtract from original signal
 final_vec = periodic_vec;
+gauss_indx = 1; % Index to manage storage in gaussian_params and other arrays
+
 for i = 1:length(pks)
+    local_mean  = movmean(final_vec, 5/mean(diff(f)));
+    local_std = movstd(final_vec,  5/mean(diff(f)));
+
     % Define dynamic region around the peak
     peak_center = locs(i);
     left_bound = peak_center;
@@ -108,9 +111,9 @@ for i = 1:length(pks)
     
     % Find left bound
     while left_bound > 1 &&...
-        periodic_vec(left_bound) > local_mean(peak_center) +0.2*local_std(peak_center)
-        if i > 1
-            if left_bound == gaussian_region{i-1}(end)+1
+        final_vec(left_bound) > local_mean(peak_center) % OPT: +0.2*local_std(peak_center)
+        if gauss_indx > 1
+            if left_bound == gaussian_region{gauss_indx-1}(end)+1
                 break;
             end
         end
@@ -118,30 +121,39 @@ for i = 1:length(pks)
     end
     
     % Find right bound
-    while right_bound < length(periodic_vec) &&...
-            periodic_vec(right_bound) > local_mean(peak_center) +0.2*local_std(peak_center)
+    while right_bound < length(final_vec) &&...
+            final_vec(right_bound) > local_mean(peak_center) % OPT: +0.2*local_std(peak_center)
         right_bound = right_bound + 1;
     end
     
     % Define the region
     region = left_bound:right_bound;
-    
+    if length(region) <3
+        continue
+    end
+
     % Fit Gaussian to the region
     x_data = region';
-    y_data = periodic_vec(region)';
+    y_data = final_vec(region)';
+    
     
     % Initial guess for parameters [amplitude, mean, stddev]
-    init_guess = [pks(i), peak_center, 1];
-    
-    % Fit the Gaussian
-    gauss_fit = fit(x_data, y_data, gauss_eq, 'StartPoint', init_guess);
-    
+    init_guess = [pks(i), peak_center, 1];  
+    % Fit the Gaussian with bounds
+    gauss_fit = fit(x_data, y_data, gauss_eq,...
+                    'StartPoint', init_guess,...
+                    'Lower', [0, left_bound, 0],...  
+                    'Upper', [max([0, max(final_vec(region))]), right_bound, length(final_vec)]); 
+                     % Lower bounds: Amplitude >= 0, Mean >= left_bound, Stddev >= 0 
+                     % Upper bounds: Amplitude <= max(data), Mean <= right_bound, Stddev <= length(data)
+
     % Save peak center, width (stddev), and Gaussian parameters
     
     peak_centers = [peak_centers; gauss_fit.b];
     peak_widths = [peak_widths; gauss_fit.c];
-    gaussian_params{i} = coeffvalues(gauss_fit);
-    gaussian_region{i} = region;
+    gaussian_params{gauss_indx} = coeffvalues(gauss_fit);
+    gaussian_region{gauss_indx} = region;
+    gauss_indx = gauss_indx + 1; % Increment index for next valid Gaussian
 
     % Subtract Gaussian from the signal
     fitted_gaussian = gauss_eq(gauss_fit.a, gauss_fit.b, gauss_fit.c, x_data);
@@ -153,16 +165,16 @@ end
 % figure;
 % hold on;
 % 
-% Plot original vector
+% % Plot original vector
 % plot(periodic_vec, 'Color', [1 0.5 0], 'DisplayName', 'Original Signal');
 % 
-% plot noise threshold
+% % plot noise threshold
 % yline(mean(periodic_vec) + std(periodic_vec), 'LineWidth', 1.5, 'DisplayName', 'Noise Threshold');
 % 
-% Plot final vector
+% % Plot final vector
 % plot(final_vec, 'Color', [0 0 1], 'LineWidth', 2, 'DisplayName', 'Final Signal after Subtraction');
 % 
-% Plot each fitted Gaussian
+% % Plot each fitted Gaussian
 % for i = 1:length(gaussian_params)
 %     gauss_fit = gaussian_params{i};
 %     x_data = gaussian_region{i};
@@ -188,17 +200,20 @@ for i = 1:length(gaussian_params)
     data_vec_flattened(region) = data_vec_flattened(region) - fitted_gaussian;
 end
 
-% make the fit again
+% make the fit again on the flattened vec
 [fit_result,gof] = fit(f',data_vec_flattened',powerLawModel,...
-                       'StartPoint',[1, 1],... %  StartPoint = Initial guess for [C, A, B]
-                       'Lower',[0,0], ...      % Lower bounds for [C, A, B]
-                       'Upper',[max(f), inf]);    % Upper bounds for [C, A, B]
+                       'StartPoint',[1, 1, 0],... %  StartPoint = Initial guess for [C, A, B]
+                       'Lower',[0,-inf, -inf], ...      % Lower bounds for [C, A, B]
+                       'Upper',[max(data_vec), inf, inf]);    % Upper bounds for [C, A, B]
 
 % Extract fitted parameters
-C = fit_result.C;
-A = fit_result.A;
-% B = fit_result.B;
-flattened_aperiodic_fit = (C ./ (f.^A));
+C = fit_result.C; % C = offset coeffitiant of the logarithmic fit (C/f^A)
+A = fit_result.A; % A = exponent of the logirithmic fit (C/f^A)
+B = fit_result.B;
+
+
+
+flattened_aperiodic_fit = (C ./ (f.^A)) + B;
 flatenned_periodic_vec = data_vec_flattened - flattened_aperiodic_fit;
 
 final_fit = flattened_aperiodic_fit;
@@ -209,22 +224,37 @@ for i = 1:length(gaussian_params)
     final_fit(region) = final_fit(region) + fitted_gaussian;
 end
 
+% goodness of fit test (rmse)
+rmse = sqrt(mean((data_vec - final_fit).^2));
+
+
 if plotting
     figure()
     plot(f, data_vec, 'DisplayName', 'original')
     hold on
     plot(f,data_vec_flattened, 'DisplayName', 'flattened')
     plot(f,flattened_aperiodic_fit, 'DisplayName', 'aperiodic')
-    % plot(f,flatenned_periodic_vec, 'DisplayName', 'periodic')
-    plot(f,final_fit, 'LineWidth', 1.5, 'DisplayName', 'final fit')
+    plot(f,final_fit, 'LineWidth', 2, 'DisplayName', 'final fit')
+    % Plot each fitted Gaussian
+    for i = 1:length(gaussian_params)
+        gauss_fit = gaussian_params{i};
+        x_data = gaussian_region{i};
+        fitted_gaussian = flattened_aperiodic_fit(x_data) + gauss_eq(gauss_fit(1), gauss_fit(2), gauss_fit(3), x_data);
+        plot(f(x_data), fitted_gaussian, '--', 'DisplayName', sprintf('Gaussian Fit %d', i));
+    end
+     xlabel('Frequency [Hz]')
+    ylabel('PSD [uV^2/Hz]')
+    title('Fit function result')
+    legend()
+    set(gcf,'Color','w')
 end
 
 %% step 4: save parameters
-% aperiodic parameters
-% C = offset coeffitiant of the logarithmic fit (C/f^A)
-% A = exponent of the logirithmic fit (C/f^A)
-aperiodic_A = A;
-aperiodic_C = C;
+
+% save aperiodic parameters
+aperiodic_params.A = A;
+aperiodic_params.B = B;
+aperiodic_params.C = C;
 
 % gaussians
 Peak_freq = [];
@@ -237,6 +267,11 @@ for i = 1:length(gaussian_region)
     region = gaussian_region{i};
     f_range = f(region(end))-f(region(1));
     Peak_bw = [Peak_bw f_range];
+end
+
+peak_height = [];
+for i = 1:length(peak_centers)
+    peak_height = [peak_height final_fit(round(peak_centers(i)))- flattened_aperiodic_fit(round(peak_centers(i)))];
 end
 
 %% smoothen peaks

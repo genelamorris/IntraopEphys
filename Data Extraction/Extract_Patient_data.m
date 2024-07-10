@@ -15,12 +15,12 @@ patient_num = find(ismember(DataStruct.params.patients, patient));
 patient_path = fullfile(patients_files_path, sprintf('%s_matlab', string(patient)));
 
 for hemi = DataStruct.params.hemispheres
-    files_table = DataStruct.(cell2mat(patient)).files_data.(cell2mat(hemi));
+    files_table = DataStruct.(char(patient)).files_data.(cell2mat(hemi));
     unq_distances = unique(cell2mat(files_table.distance), 'stable');
     unq_movement = round([0; abs(diff(unq_distances))], 1);
     
     % Create empty table for every patient and every hemisphere
-    TableName = sprintf('table_%s_%s', cell2mat(patient), cell2mat(hemi));
+    TableName = sprintf('table_%s_%s', char(patient), cell2mat(hemi));
     DataStruct.(string(patient)).(TableName) = table('Size', [length(unq_distances) 9], ...
         'VariableTypes', {'cell', 'cell', 'cell', 'cell', 'cell', 'cell', 'cell', 'double', 'struct'}, ...
         'VariableNames', {'Alpha_Central', 'Alpha_Lateral', 'Alpha_Anterior', 'Alpha_Medial', 'Alpha_Posterior', ...

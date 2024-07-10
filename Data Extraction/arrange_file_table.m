@@ -14,7 +14,7 @@ function files_data = arrange_file_table(folder_path)
 %     - right: A table with files from the right side, filtered and sorted.
 
 % List the files in the folder
-files = dir(fullfile(folder_path, '*.*')); 
+files = dir(fullfile(folder_path, '*.mat'));
 fileNames = {files(~[files.isdir]).name}'; % Extract file names
 
 % Extract file metadata from the file names
@@ -40,11 +40,14 @@ files_data.all_data = fileTable;
 % Filter and sort data for the left side
 files_data.left = fileTable(strcmpi(fileTable.Side, 'lt') & strcmpi(fileTable.movement_type, 'f'), :);
 files_data.left = sortrows(files_data.left, 'distance', 'descend');
-files_data.left.previous_step_size = [0; round(abs(diff(cell2mat(files_data.left.distance))), 2)];
+if ~isempty(files_data.left)
+    files_data.left.previous_step_size = [0; round(abs(diff(cell2mat(files_data.left.distance))), 2)];
+end
 
 % Filter and sort data for the right side
 files_data.right = fileTable(strcmpi(fileTable.Side, 'rt') & strcmpi(fileTable.movement_type, 'f'), :);
 files_data.right = sortrows(files_data.right, 'distance', 'descend');
-files_data.right.previous_step_size = [0; round(abs(diff(cell2mat(files_data.right.distance))), 2)];
-
+if ~isempty(files_data.right)
+    files_data.right.previous_step_size = [0; round(abs(diff(cell2mat(files_data.right.distance))), 2)];
+end
 end

@@ -1,4 +1,4 @@
-function relative_power_vector = Plot_Uni_values(DataStruct,Patient,Hemisphere,Electrode, mode, Band)
+function relative_power_vector = Plot_Uni_values(DataStruct,Patient,Hemisphere,Electrode, mode, Band, show_xline, show_electrodes)
 
 table_name = sprintf('table_%s_%s',Patient,lower(Hemisphere));
 titleText = sprintf('%s - %s - %s', Patient, Hemisphere, Electrode);
@@ -16,7 +16,7 @@ if strcmpi(mode, 'relative_RMS')
    
     % plot
     plot(x_location, relative_RMS, 'LineWidth', 2)
-    Helper_Plot_Xlines(DataStruct, Patient, Hemisphere, Electrode)
+    % Helper_Plot_Xlines(DataStruct, Patient, Hemisphere, Electrode)
     ylabel('Relative RMS [\muV]')
     xlabel('X Depth (Corrected) [mm]')
     title({titleText, 'Relative RMS along the surgery direction'})
@@ -31,6 +31,7 @@ if strcmpi(mode, 'relative_RMS')
     set(gca, 'Xdir', 'reverse') 
     set(gcf,'color', 'w')
     box off
+
 
 end
 
@@ -108,7 +109,7 @@ if strcmpi(mode, 'Fit Histogram')
     for i = 1:size(temp_table,1)
         Peak_freq{i} = temp_table{i}.PSD_fit.gauss_Peak_freq;
         Peak_bw{i} = temp_table{i}.PSD_fit.gauss_Peak_bw;
-        peak_height{i} = temp_table{i}.PSD_fit.gauss_peak_hight;
+        peak_height{i} = temp_table{i}.PSD_fit.gauss_peak_height;
     end
 
     % Prepare data for the bubble chart
@@ -134,25 +135,26 @@ if strcmpi(mode, 'Fit Histogram')
     % Scale the bubble sizes for better visualization
     min_bw = min(bubble_sizes);
     max_bw = max(bubble_sizes);
-    scaled_bubble_sizes = 150 * (bubble_sizes - min_bw) / (max_bw - min_bw) + 1; % Adjust scaling factors as needed
+    scaled_bubble_sizes = 250 * (bubble_sizes - min_bw) / (max_bw - min_bw) + 1; % Adjust scaling factors as needed
 
     % Plot the bubble chart with sizes and colors
     scatter(x_data, y_data, scaled_bubble_sizes, bubble_colors, 'filled');
-    Helper_Plot_Xlines(DataStruct, Patient, Hemisphere, Electrode)   
-    x1.Color = 'w';
-    x2.Color = 'w';
-    cmap = colormap(hot); % Choose a colormap, 'jet' is used here
-    colorbar; % Show the colorbar to indicate bandwidth values
-    caxis([-1.5 1.5]); % Set color axis limits to the actual bandwidth range
+    set(gca, 'Xdir', 'reverse')
+    cmap = colormap(jet); % Choose a colormap, 'jet' is used here
+    c = colorbar; % Show the colorbar to indicate bandwidth values
+    clim([0 0.9])
+    ylim([0 30])
+    ylabel(c ,'Peak Amplitude', 'FontSize', 12)
     xlabel('X Depth (Corrected) [mm]');
     ylabel('Frequency [Hz]');
-    title({titleText, 'Peak along Frequeny & Depth'})
+    title({titleText, 'Peak along Frequeny & Depth'})    
     set(gca, 'FontSize', 12)
-    set(gca, 'Xdir', 'reverse') 
-    set(gca, 'Color', cmap(1,:));
-
     set(gcf,'color', 'w')
+    grid minor
+    set(gca, 'XMinorGrid', 'on')
     box off
+
+
 end
 %% %%%%%%%%%%%%%%%%%%%%%%% Entropy %%%%%%%%%%%%%%%%%%%%%%%
 if strcmpi(mode, 'Entropy')
@@ -319,5 +321,13 @@ elseif strcmpi(mode, 'Spectral Kurtosis')
 end
 
 
+if show_electrodes 
+    Y_lim = ylim();
+    Helper_Plot_Electrode_Area(x_location, Y_lim)
+end
+
+if show_xline
+    Helper_Plot_Xlines(DataStruct, Patient, Hemisphere, Electrode)   
+end
 
 end

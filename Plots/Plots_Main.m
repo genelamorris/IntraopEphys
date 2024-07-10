@@ -16,27 +16,30 @@ Bands = {'theta', 'alpha', 'beta', 'gamma', 'all'};
 
 % 1. Relative RMS
 electrodes = {'Central', 'Lateral', 'Anterior', 'Medial', 'Posterior', 'Neuroprobe_1'};
-% electrodes = {'Neuroprobe_1', 'Neuroprobe_2'};
-side = 'left';
+electrodes = {'Neuroprobe_1'};
+side = 'right';
+patient = 'Mahajna_Mahmoud';
+show_xlines = false;
+show_electrodes = false;
 
 figure(1)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_values(DataStruct_A,'Samuelov_Ido',side,electrodes{i}, 'relative_RMS',[]);
+    Plot_Uni_values(DataStruct_A,patient,side,electrodes{i}, 'relative_RMS',[],show_xlines, show_electrodes);
 end
 
 % 2. Entropy
 figure(2)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_values(DataStruct,'SV',side,electrodes{i}, 'Entropy',[]);
+    Plot_Uni_values(DataStruct,'SV',side,electrodes{i}, 'Entropy',[],show_xlines, show_electrodes);
 end
 
 % 3. Relative Power
 figure(3)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_values(DataStruct_A,'EC',side,electrodes{i}, 'relative_Power','all');
+    Plot_Uni_values(DataStruct_A,patient,side,electrodes{i}, 'relative_Power','all',show_xlines, show_electrodes);
 end
 % ADD amplitude of peak frequency
 
@@ -44,23 +47,23 @@ end
 figure(4)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_values(DataStruct_A,'EC',side,electrodes{i}, 'Aperiodic A', []);
+    Plot_Uni_values(DataStruct_A,patient,side,electrodes{i}, 'Aperiodic A', [],show_xlines, show_electrodes);
 end
 figure(5)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_values(DataStruct_A,'EC',side,electrodes{i}, 'Aperiodic C', []);
+    Plot_Uni_values(DataStruct_A,patient,side,electrodes{i}, 'Aperiodic C', [],show_xlines, show_electrodes);
 end
 figure(6)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_values(DataStruct_A,'EC',side,electrodes{i}, 'Fit Error', []);
+    Plot_Uni_values(DataStruct_A,patient,side,electrodes{i}, 'Fit Error', [],show_xlines, show_electrodes);
 end
 
 figure(7)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_values(DataStruct,'EC',side,electrodes{i}, 'Fit Histogram', []);
+    Plot_Uni_values(DataStruct_A,patient,'right',electrodes{i}, 'Fit Histogram', [],show_xlines, show_electrodes);
 end
 
 % 6. Spectrogram
@@ -68,30 +71,34 @@ end
 figure(8)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_vectors(DataStruct_A,'EC',side,electrodes{i}, 'Spectrogram');
+    Plot_Uni_vectors(DataStruct_A,patient,side,electrodes{i}, 'Spectrogram');
 end
 
 figure(9)
+show_xlines = false;
+show_electrodes = false;
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_vectors(DataStruct_A,'EC',side,electrodes{i}, 'PSD-fit Spectrogram');
+    Plot_Uni_vectors(DataStruct_A,patient,side,electrodes{i}, 'PSD-fit Spectrogram',show_xlines, show_electrodes);
 end
 
 % 8. Spectral Entropy
 figure(10);
 for i = 1:length(electrodes)
     subplot(2, 3, i);
-    Plot_Uni_vectors(DataStruct,'EC','right',electrodes{i}, 'Spectral Entropy');
+    Plot_Uni_vectors(DataStruct,patient,'right',electrodes{i}, 'Spectral Entropy',show_xlines, show_electrodes);
     % hold on
     % yyaxis right
-    % Plot_Uni_values(DataStruct,'EC','left',electrodes{i}, 'relative_RMS',[]);
+    % Plot_Uni_values(DataStruct,patient,'left',electrodes{i}, 'relative_RMS',[]);
 end
 
 % 9. Spectral Kurtosis
 figure(11)
+show_xlines = false;
+show_electrodes = false;
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Uni_vectors(DataStruct,'EC','left',electrodes{i}, 'Spectral Kurtosis');
+    Plot_Uni_vectors(DataStruct,patient,'left',electrodes{i}, 'Spectral Kurtosis',show_xlines, show_electrodes);
 end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -110,33 +117,44 @@ electrodes = {'Lateral', 'Anterior', 'Medial', 'Posterior', 'Neuroprobe_1'};
 figure(9)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Bi_values(DataStruct_B,'EC','left',main_electrode,electrodes{i}, 'Covariance');
+    Plot_Bi_values(DataStruct_B,patient,'left',main_electrode,electrodes{i}, 'Covariance');
 end
 
 % 2. Cross Correlation
 figure(10)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Bi_values(DataStruct_B,'EC','left',main_electrode,electrodes{i}, 'Correlation Coeffitient');
+    Plot_Bi_values(DataStruct_B,patient,'left',main_electrode,electrodes{i}, 'Correlation Coeffitient');
 end
 
 % 3. CPSD
 figure(11)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Coherogram(DataStruct_B,'EC','right',main_electrode,electrodes{i},  'CPSD');
+    Plot_Coherogram(DataStruct_B,patient,'right',main_electrode,electrodes{i},  'CPSD');
 end
 
 % 4. coherence (mscohere)
 figure(12)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Coherogram(DataStruct_B,'EC','left',main_electrode,electrodes{i}, 'coherence manual');
+    Plot_Coherogram(DataStruct_B,patient,'left',main_electrode,electrodes{i}, 'coherence manual');
 end
 
 % 5. coherence (chronux)
 figure(13)
 for i = 1:length(electrodes)
     subplot(2,3,i)
-    Plot_Coherogram(DataStruct_B,'EC','left',main_electrode,electrodes{i}, 'chronux Coherence');
+    Plot_Coherogram(DataStruct_B,patient,'left',main_electrode,electrodes{i}, 'chronux Coherence');
+end
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Electrodes correlations
+
+figure(1)
+modes = {'time_vec','relative_RMS','Spectral_entropy','PSD_fit', 'beta', 'gamma'};
+for i = 1:length(modes)
+    subplot(2,3,i)
+    Plot_Electrode_Correlation(DataStruct_A, patient, 'right', modes{i})
 end
